@@ -749,7 +749,11 @@ function loadHistory(entry) {
 // CONFIG
 // ============================================================
 function getConfig() {
-  try { return JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}'); } catch { return {}; }
+  try {
+    const cfg = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}');
+    if (!cfg.secret) cfg.secret = 'utmbr_2026_K9mXvQ3rN7pZ';
+    return cfg;
+  } catch { return {secret: 'utmbr_2026_K9mXvQ3rN7pZ'}; }
 }
 function openConfig() {
   const cfg = getConfig();

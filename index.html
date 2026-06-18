@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UTM Builder — MRN</title>
+  <style>
+    :root {
+      --bg: #0a0a0a; --surface: #111; --surface2: #1a1a1a; --surface3: #222;
+      --border: #2a2a2a; --text: #e8e8e8; --muted: #666; --muted2: #444;
+      --lime: #c5f02c; --lime-bg: rgba(197,240,44,0.08); --lime-border: rgba(197,240,44,0.25);
+      --green: #4ade80; --green-bg: rgba(74,222,128,0.08);
+      --purple: #a78bfa; --purple-bg: rgba(167,139,250,0.08);
+      --amber: #fbbf24; --amber-bg: rgba(251,191,36,0.08);
+      --red: #f87171; --radius: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+    /* ---- Header ---- */
+    header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+    .logo { width: 30px; height: 30px; background: var(--lime); border-radius: 6px; display: grid; place-items: center; font-weight: 900; font-size: 14px; color: #000; flex-shrink: 0; }
+    .header-text h1 { font-size: 15px; font-weight: 600; }
+    .header-text p { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .header-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+    .btn-icon { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: var(--radius); padding: 6px 10px; cursor: pointer; font-size: 13px; transition: all .15s; }
+    .btn-icon:hover { border-color: var(--lime); color: var(--lime); }
+
+    /* ---- Layout ---- */
+    .page { max-width: 1080px; margin: 0 auto; padding: 24px; display: grid; grid-template-columns: 480px 1fr; gap: 20px; align-items: start; }
+    @media (max-width: 860px) { .page { grid-template-columns: 1fr; } }
+
+    /* ---- Cards ---- */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+    .card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 16px; }
+
+    /* ---- Quick links ---- */
+    .ql-group { margin-bottom: 14px; }
+    .ql-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; display: flex; align-items: center; gap: 5px; }
+    .ql-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .chip { padding: 4px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; font-size: 11px; cursor: pointer; white-space: nowrap; transition: all .15s; line-height: 1.4; }
+    .chip:hover { border-color: var(--lime); color: var(--lime); }
+
+    /* ---- Form ---- */
+    .field { margin-bottom: 13px; }
+    .field label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+    .field label span { color: var(--muted2); font-style: italic; }
+    input[type=text], textarea {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      padding: 8px 11px; border-radius: var(--radius); font-size: 13px; outline: none; transition: border .15s;
+    }
+    input[type=text]:focus, textarea:focus { border-color: var(--lime-border); }
+    input[type=text]::placeholder, textarea::placeholder { color: var(--muted2); }
+
+    .fields-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* Autocomplete wrapper */
+    .ac-wrap { position: relative; }
+    .ac-wrap input { padding-right: 28px; }
+    .ac-drop { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); z-index: 50; max-height: 180px; overflow-y: auto; display: none; }
+    .ac-drop.open { display: block; }
+    .ac-item { padding: 7px 11px; font-size: 13px; cursor: pointer; }
+    .ac-item:hover, .ac-item.active { background: var(--surface2); color: var(--lime); }
+    .ac-clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; display: none; }
+
+    /* ---- Separator ---- */
+    .sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+    /* ---- Buttons ---- */
+    .btn { padding: 8px 16px; border-radius: var(--radius); border: none; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .15s; }
+    .btn-lime { background: var(--lime); color: #000; }
+    .btn-lime:hover { filter: brightness(1.08); }
+    .btn-lime:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover { border-color: var(--lime); color: var(--lime); }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+    .btn-ghost { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 13px; padding: 5px 8px; border-radius: 5px; }
+    .btn-ghost:hover { color: var(--lime); background: var(--lime-bg); }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+    /* ---- Output panel ---- */
+    .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+    .badge-organic { background: var(--green-bg); color: var(--green); border: 1px solid rgba(74,222,128,.2); }
+    .badge-recovery { background: var(--purple-bg); color: var(--purple); border: 1px solid rgba(167,139,250,.2); }
+    .badge-auto { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(251,191,36,.2); }
+
+    .url-box { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px; font-family: 'Courier New', monospace; font-size: 11.5px; word-break: break-all; color: var(--lime); min-height: 54px; line-height: 1.6; }
+    .url-box.empty { color: var(--muted2); font-family: inherit; font-size: 13px; }
+    .url-meta { font-size: 11px; color: var(--muted); margin-top: 7px; font-family: monospace; }
+    .url-meta strong { color: var(--muted); font-weight: 400; }
+
+    /* ---- Short URL section ---- */
+    .short-section { margin-top: 20px; }
+    .short-row { display: flex; gap: 0; margin-top: 8px; }
+    .short-prefix { background: var(--surface2); border: 1px solid var(--border); border-right: none; padding: 8px 10px; border-radius: var(--radius) 0 0 var(--radius); font-size: 11px; color: var(--muted); display: flex; align-items: center; white-space: nowrap; }
+    .short-row input { border-radius: 0; flex: 1; border-left: none; border-right: none; }
+    .short-row input:focus { border-color: var(--border); border-left: none; border-right: none; outline: none; box-shadow: none; }
+    .short-row .btn-lime { border-radius: 0 var(--radius) var(--radius) 0; flex-shrink: 0; }
+    .short-result { margin-top: 8px; padding: 9px 12px; background: var(--lime-bg); border: 1px solid var(--lime-border); border-radius: var(--radius); font-size: 12px; display: none; }
+    .short-result .short-url { font-family: monospace; color: var(--lime); font-size: 13px; }
+    .short-list { margin-top: 14px; }
+    .short-list-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .short-list-item:last-child { border-bottom: none; }
+    .short-slug { font-family: monospace; color: var(--lime); }
+    .short-arrow { color: var(--muted); }
+    .short-target { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; flex: 1; }
+
+    /* ---- History ---- */
+    .history-section { grid-column: 1 / -1; }
+    .history-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 24px; }
+    .h-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .h-table th { text-align: left; padding: 7px 10px; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .h-table td { padding: 7px 10px; border-bottom: 1px solid #1a1a1a; vertical-align: middle; }
+    .h-table tr:hover td { background: var(--surface2); }
+    .h-url { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: monospace; color: var(--lime); font-size: 11px; cursor: pointer; }
+    .h-slug { font-family: monospace; font-size: 11px; color: var(--muted); }
+    .h-slug a { color: var(--lime); text-decoration: none; }
+    .h-slug a:hover { text-decoration: underline; }
+    .h-desc { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+    .h-date { color: var(--muted); white-space: nowrap; }
+    .h-actions { display: flex; gap: 4px; }
+
+    /* ---- Toast ---- */
+    .toast { position: fixed; bottom: 20px; right: 20px; background: var(--lime); color: #000; padding: 9px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 600; opacity: 0; transform: translateY(6px); transition: all .2s; pointer-events: none; z-index: 999; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ---- Config Modal ---- */
+    .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; display: none; place-items: center; }
+    .modal-bg.open { display: grid; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; width: 420px; max-width: calc(100vw - 40px); }
+    .modal h3 { font-size: 14px; font-weight: 600; margin-bottom: 16px; }
+    .modal p { font-size: 12px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+    .form-note { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    /* ---- Spinner ---- */
+    .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(0,0,0,.3); border-top-color: #000; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">U</div>
+  <div class="header-text">
+    <h1>UTM Builder</h1>
+    <p>Manual do Recém-Nascido · Links com rastreamento</p>
+  </div>
+  <div class="header-right">
+    <button class="btn-icon" onclick="openConfig()" title="Configurações do link curto">⚙ Config</button>
+    <button class="btn-icon" onclick="clearHistory()" title="Limpar histórico">🗑 Histórico</button>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- ===== COLUNA ESQUERDA: FORMULÁRIO ===== -->
+  <div>
+
+    <!-- Quick links -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">Links oficiais</div>
+      <div class="ql-group">
+        <div class="ql-label">🤰 Gestantes</div>
+        <div class="ql-chips">
+          <span class="chip" onclick="useLink('https://mr.manualdorecemnascido.com.br/ebook-enxoval-ofertas-maternas/')">Ebook Enxoval</span>
+          <span class="chip" onclick="useLink('https://mr.manualdorecemnascido.com.br/quiz-b-tipo-de-mae/')">Quiz Tipo de Mãe</span>
+          <span class="chip" onclick="useLink('https://mr.manualdorecemnascido.com.br/quiz-b-estilo-de-enxoval/')">Quiz Estilo Enxoval</span>
+          <span class="chip" onclick="useLink('https://mr.manualdorecemnascido.com.br/quiz-b-esta-preparada/')">Quiz Preparada</span>
+        </div>
+      </div>
+      <div class="ql-group">
+        <div class="ql-label">🤱 Amamentação</div>
+        <div class="ql-chips">
+          <span class="chip" onclick="useLink('https://td.manualdorecemnascido.com.br/')">Técnica dos Anjos</span>
+          <span class="chip" onclick="useLink('https://td.manualdorecemnascido.com.br/alta-producao/')">Alta Produção</span>
+          <span class="chip" onclick="useLink('https://td.manualdorecemnascido.com.br/ebook-bebe/')">Isca Ebook Saciar</span>
+          <span class="chip" onclick="useLink('https://td.manualdorecemnascido.com.br/vsl/')">VSL Amamentação</span>
+        </div>
+      </div>
+      <div class="ql-group">
+        <div class="ql-label">😴 Sono</div>
+        <div class="ql-chips">
+          <span class="chip" onclick="useLink('https://db.manualdorecemnascido.com.br/')">Dream Baby</span>
+          <span class="chip" onclick="useLink('https://db.manualdorecemnascido.com.br/quiz')">Quiz Dream (tráfego)</span>
+          <span class="chip" onclick="useLink('https://db.manualdorecemnascido.com.br/home-dream-baby-quiz/')">Quiz Dream (orgânico)</span>
+          <span class="chip" onclick="useLink('https://db.manualdorecemnascido.com.br/lk-ebook-rotina-do-bebe/')">Ebook Rotina</span>
+          <span class="chip" onclick="useLink('https://db.manualdorecemnascido.com.br/vsl/')">VSL Sono</span>
+        </div>
+      </div>
+      <div class="ql-group" style="margin-bottom:0">
+        <div class="ql-label">🔗 Outros</div>
+        <div class="ql-chips">
+          <span class="chip" onclick="useLink('https://manualdorecemnascido.com.br/links')">Links IG</span>
+          <span class="chip" onclick="useLink('https://manualdorecemnascido.com.br/t-links')">Links TikTok</span>
+          <span class="chip" onclick="useLink('https://perfis.manualdorecemnascido.com.br/')">Perfis Dream Baby</span>
+          <span class="chip" onclick="useLink('https://tdapocket.manualdorecemnascido.com.br/')">Guia da Pega</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form -->
+    <div class="card">
+      <div class="card-title">Dados do link</div>
+
+      <div class="field">
+        <label>URL de destino <span>obrigatório</span></label>
+        <input type="text" id="f-url" placeholder="https://..." oninput="update()" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label>Descrição / Nome do link <span>opcional — aparece no histórico</span></label>
+        <input type="text" id="f-desc" placeholder="ex: LINK BIO INSTAGRAM" oninput="update()" autocomplete="off">
+      </div>
+
+      <hr class="sep">
+
+      <div class="fields-2">
+        <div class="field">
+          <label>Fonte (utm_source)</label>
+          <div class="ac-wrap">
+            <input type="text" id="f-source" placeholder="instagram" oninput="acFilter('source');update()" onfocus="acOpen('source')" autocomplete="off">
+            <span class="ac-clear" id="ac-clear-source" onclick="acClear('source')">×</span>
+            <div class="ac-drop" id="ac-source"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Campanha (utm_campaign)</label>
+          <div class="ac-wrap">
+            <input type="text" id="f-campaign" placeholder="organico" oninput="acFilter('campaign');update()" onfocus="acOpen('campaign')" autocomplete="off">
+            <span class="ac-clear" id="ac-clear-campaign" onclick="acClear('campaign')">×</span>
+            <div class="ac-drop" id="ac-campaign"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Meio (utm_medium)</label>
+          <div class="ac-wrap">
+            <input type="text" id="f-medium" placeholder="link-da-bio" oninput="acFilter('medium');update()" onfocus="acOpen('medium')" autocomplete="off">
+            <span class="ac-clear" id="ac-clear-medium" onclick="acClear('medium')">×</span>
+            <div class="ac-drop" id="ac-medium"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Anúncio (utm_id)</label>
+          <div class="ac-wrap">
+            <input type="text" id="f-id" placeholder="clicou-link" oninput="acFilter('id');update()" onfocus="acOpen('id')" autocomplete="off">
+            <span class="ac-clear" id="ac-clear-id" onclick="acClear('id')">×</span>
+            <div class="ac-drop" id="ac-id"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Conteúdo (utm_content)</label>
+        <div class="ac-wrap">
+          <input type="text" id="f-content" placeholder="publico-q" oninput="acFilter('content');update()" onfocus="acOpen('content')" autocomplete="off">
+          <span class="ac-clear" id="ac-clear-content" onclick="acClear('content')">×</span>
+          <div class="ac-drop" id="ac-content"></div>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:6px">
+        <button class="btn btn-lime" onclick="generate()">Gerar URL</button>
+        <button class="btn btn-outline btn-sm" onclick="clearForm()">Limpar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== COLUNA DIREITA: OUTPUT ===== -->
+  <div>
+    <div class="card">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>URL gerada</span>
+        <span id="badge-class"></span>
+      </div>
+
+      <div id="url-preview" class="url-box empty">Preencha os campos e clique em Gerar URL</div>
+      <div id="src-preview" class="url-meta" style="display:none"></div>
+
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn btn-lime" onclick="copyFull()" id="btn-copy-full" disabled>Copiar URL</button>
+        <button class="btn btn-outline btn-sm" onclick="copyParams()" id="btn-copy-params" disabled>Só os parâmetros</button>
+      </div>
+
+      <!-- Short URL -->
+      <div class="short-section">
+        <div class="card-title" style="margin-bottom:8px">Link curto <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted2);font-size:10px">(manualdorecemnascido.com.br/slug)</span></div>
+        <div class="short-row">
+          <span class="short-prefix">manualdorecemnascido.com.br/</span>
+          <input type="text" id="f-slug" placeholder="GuiaDaPega-Y" style="font-family:monospace;font-size:13px" oninput="slugInput()">
+          <button class="btn btn-lime" id="btn-short" onclick="createShort()" disabled style="white-space:nowrap">Criar</button>
+        </div>
+        <div id="short-result" class="short-result"></div>
+      </div>
+
+      <!-- Short links list -->
+      <div id="short-list-wrap" style="display:none;margin-top:16px">
+        <div class="card-title" style="margin-bottom:8px">Links criados nesta sessão</div>
+        <div id="short-list" class="short-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== HISTÓRICO ===== -->
+  <div class="card history-section">
+    <div class="card-title" style="display:flex;justify-content:space-between">
+      <span>Histórico de URLs geradas</span>
+      <span id="h-count" style="color:var(--muted)"></span>
+    </div>
+    <div id="history-body"></div>
+  </div>
+
+</div><!-- .page -->
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Config Modal -->
+<div class="modal-bg" id="modal-config">
+  <div class="modal">
+    <h3>⚙ Configuração do link curto</h3>
+    <p>O link curto usa um Cloudflare Worker em <code style="color:var(--lime)">manualdorecemnascido.com.br</code>. Configure abaixo o endpoint e o token de autenticação.</p>
+    <div class="field">
+      <label>Worker Secret</label>
+      <input type="text" id="cfg-secret" placeholder="utmbr_..." autocomplete="off">
+      <div class="form-note">Token configurado no Worker (variável WORKER_SECRET)</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeConfig()">Cancelar</button>
+      <button class="btn btn-lime btn-sm" onclick="saveConfig()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA — Keywords de cada campo
+// ============================================================
+const AC_DATA = {
+  source: [
+    'instagram','tiktok','facebook','youtube','kwai','google','whatsapp',
+    'isca-digital','area-de-membros','automacao-whats','upsell',
+    'recuperacao-vendas','comercial','parceria','evento-lancamento'
+  ],
+  campaign: [
+    'organico','sales','quiz','meteorico','vittalice','unnichat',
+    'isca-ebook-saciar','isca-ebook-sono','isca-ebook-enxoval',
+    'isca-ebook-clima','isca-ebook-introducao',
+    'quiz-gestante-preparada','quiz-gestante-tipo','quiz-gestante-estilo',
+    'aluna-tda','aluna-drm','aluna-ebook-alta-producao','aluna-ebook-rotina',
+    'link-descritivo-youtube','vsl-dream-baby','vsl-tecnica',
+    'aluna','back-direct-bbc','fluxo-funil-bebe-calminho','back-redirect',
+    'SMAM','black-maternity'
+  ],
+  medium: [
+    'link-da-bio','stories','direto','manychat','post-fixo',
+    'post-carrossel','automacao-whats','fluxo-whats','evento',
+    'curso-plano-de-parto','publico-q','publico-t','descritivo-video',
+    'checkout','time-vendas','palestra-aline','meteorico','pagina-up-sell'
+  ],
+  id: [
+    'clicou-link','ativacao-posts-fixos','checkout','manychat','site'
+  ],
+  content: [
+    'publico-q','publico-t','link-da-bio','stories','manychat',
+    'fluxo-whats','interno-ebook','atendiment-whats','descritivo-video',
+    'post-fixo','ativacao-posts-fixos','meteorico','evento',
+    'pagina-up-sell','palestra-aline','checkout'
+  ]
+};
+
+// ============================================================
+// STATE
+// ============================================================
+let currentUrl = '';
+let currentParams = '';
+let shortLinks = [];    // session short links
+const HISTORY_KEY = 'utm_history_v1';
+const CONFIG_KEY  = 'utm_config_v1';
+
+// ============================================================
+// AUTOCOMPLETE
+// ============================================================
+function acOpen(field) {
+  acFilter(field);
+  document.getElementById('ac-'+field).classList.add('open');
+}
+
+function acFilter(field) {
+  const input = document.getElementById('f-'+field);
+  const drop  = document.getElementById('ac-'+field);
+  const val   = input.value.toLowerCase().trim();
+  const items = AC_DATA[field].filter(k => !val || k.toLowerCase().includes(val));
+  const clear = document.getElementById('ac-clear-'+field);
+
+  clear.style.display = input.value ? 'block' : 'none';
+
+  if (!items.length) { drop.classList.remove('open'); return; }
+  drop.innerHTML = items.map((k,i) =>
+    `<div class="ac-item" onmousedown="acSelect('${field}','${k}')">${highlight(k, val)}</div>`
+  ).join('');
+  drop.classList.add('open');
+}
+
+function highlight(text, query) {
+  if (!query) return text;
+  return text.replace(new RegExp(`(${query})`, 'gi'), '<strong>$1</strong>');
+}
+
+function acSelect(field, val) {
+  document.getElementById('f-'+field).value = val;
+  document.getElementById('ac-'+field).classList.remove('open');
+  document.getElementById('ac-clear-'+field).style.display = 'block';
+  update();
+}
+
+function acClear(field) {
+  document.getElementById('f-'+field).value = '';
+  document.getElementById('ac-'+field).classList.remove('open');
+  document.getElementById('ac-clear-'+field).style.display = 'none';
+  update();
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ac-wrap')) {
+    document.querySelectorAll('.ac-drop').forEach(d => d.classList.remove('open'));
+  }
+});
+
+// ============================================================
+// QUICK LINKS
+// ============================================================
+function useLink(url) {
+  document.getElementById('f-url').value = url;
+  update();
+  document.getElementById('f-source').focus();
+}
+
+// ============================================================
+// CLASSIFICATION
+// ============================================================
+function classify(source, campaign) {
+  const s = (source || '').toLowerCase();
+  const c = (campaign || '').toLowerCase();
+  if (/sales|time-vendas|unnichat|comercial|atendiment|recupera/.test(s+c)) {
+    return { label: '🔄 Recuperação', cls: 'badge-recovery' };
+  }
+  if (/isca-digital|automacao-whats|area-de-membros/.test(s)) {
+    return { label: '📧 Automação', cls: 'badge-auto' };
+  }
+  return { label: '🌱 Orgânico', cls: 'badge-organic' };
+}
+
+// ============================================================
+// BUILD URL
+// ============================================================
+function buildUrl() {
+  const base     = document.getElementById('f-url').value.trim();
+  const source   = document.getElementById('f-source').value.trim();
+  const campaign = document.getElementById('f-campaign').value.trim();
+  const medium   = document.getElementById('f-medium').value.trim();
+  const utmId    = document.getElementById('f-id').value.trim();
+  const content  = document.getElementById('f-content').value.trim();
+
+  if (!base) return { full: '', params: '', src: '' };
+
+  const parts = [];
+  if (source)   parts.push(`utm_source=${encodeURI(source)}`);
+  if (campaign) parts.push(`utm_campaign=${encodeURI(campaign)}`);
+  if (medium)   parts.push(`utm_medium=${encodeURI(medium)}`);
+  if (utmId)    parts.push(`utm_id=${encodeURI(utmId)}`);
+  if (content)  parts.push(`utm_content=${encodeURI(content)}`);
+
+  // src compound param: campaign|medium|id|content
+  const srcParts = [campaign, medium, utmId, content].filter(Boolean);
+  const src = srcParts.length ? `src=${encodeURI(srcParts.join('|'))}` : '';
+  if (src) parts.push(src);
+
+  const sep    = base.includes('?') ? '&' : '?';
+  const query  = parts.join('&');
+  const full   = query ? base + sep + query : base;
+  const params = query ? sep + query : '';
+
+  return { full, params, src: srcParts.join('|') };
+}
+
+// ============================================================
+// UPDATE PREVIEW (live, while typing)
+// ============================================================
+function update() {
+  const { full, src } = buildUrl();
+  const source   = document.getElementById('f-source').value.trim();
+  const campaign = document.getElementById('f-campaign').value.trim();
+
+  const preview = document.getElementById('url-preview');
+  const srcEl   = document.getElementById('src-preview');
+  const badge   = document.getElementById('badge-class');
+
+  if (full) {
+    preview.textContent = full;
+    preview.classList.remove('empty');
+    if (src) {
+      srcEl.style.display = 'block';
+      srcEl.innerHTML = `<strong>&src=</strong>${src}`;
+    } else {
+      srcEl.style.display = 'none';
+    }
+    const cl = classify(source, campaign);
+    badge.innerHTML = `<span class="badge ${cl.cls}">${cl.label}</span>`;
+  } else {
+    preview.textContent = 'Preencha a URL de destino e clique em Gerar URL';
+    preview.classList.add('empty');
+    srcEl.style.display = 'none';
+    badge.innerHTML = '';
+  }
+
+  // update slug button state
+  slugInput();
+}
+
+// ============================================================
+// GENERATE (saves to history)
+// ============================================================
+function generate() {
+  const { full, params } = buildUrl();
+  if (!full) { toast('Informe a URL de destino'); return; }
+
+  currentUrl    = full;
+  currentParams = params;
+
+  document.getElementById('btn-copy-full').disabled   = false;
+  document.getElementById('btn-copy-params').disabled = false;
+
+  // Save to history
+  const entry = {
+    id:       Date.now(),
+    desc:     document.getElementById('f-desc').value.trim() || '',
+    url:      full,
+    source:   document.getElementById('f-source').value.trim(),
+    campaign: document.getElementById('f-campaign').value.trim(),
+    medium:   document.getElementById('f-medium').value.trim(),
+    date:     new Date().toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})
+  };
+  saveHistory(entry);
+  renderHistory();
+  toast('URL gerada!');
+}
+
+// ============================================================
+// COPY
+// ============================================================
+function copyFull() {
+  const { full } = buildUrl();
+  if (!full) return;
+  navigator.clipboard.writeText(full).then(() => toast('URL copiada!'));
+}
+
+function copyParams() {
+  const { params } = buildUrl();
+  if (!params) return;
+  navigator.clipboard.writeText(params).then(() => toast('Parâmetros copiados!'));
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => toast('Copiado!'));
+}
+
+// ============================================================
+// CLEAR
+// ============================================================
+function clearForm() {
+  ['url','desc','source','campaign','medium','id','content','slug'].forEach(f => {
+    const el = document.getElementById('f-'+f);
+    if (el) el.value = '';
+  });
+  ['source','campaign','medium','id','content'].forEach(f => {
+    document.getElementById('ac-clear-'+f).style.display = 'none';
+  });
+  currentUrl = ''; currentParams = '';
+  document.getElementById('btn-copy-full').disabled = true;
+  document.getElementById('btn-copy-params').disabled = true;
+  document.getElementById('short-result').style.display = 'none';
+  document.getElementById('badge-class').innerHTML = '';
+  document.getElementById('src-preview').style.display = 'none';
+  document.getElementById('url-preview').textContent = 'Preencha os campos e clique em Gerar URL';
+  document.getElementById('url-preview').classList.add('empty');
+  document.getElementById('btn-short').disabled = true;
+}
+
+// ============================================================
+// SHORT URL
+// ============================================================
+function slugInput() {
+  const slug = document.getElementById('f-slug').value.trim();
+  const { full } = buildUrl();
+  document.getElementById('btn-short').disabled = !slug || !full;
+}
+
+async function createShort() {
+  const slug = document.getElementById('f-slug').value.trim();
+  const { full } = buildUrl();
+  if (!slug || !full) return;
+
+  const config = getConfig();
+  if (!config.secret) {
+    openConfig();
+    toast('Configure o Worker Secret primeiro');
+    return;
+  }
+
+  const btn = document.getElementById('btn-short');
+  btn.innerHTML = '<span class="spin"></span>';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch('https://manualdorecemnascido.com.br/_utmapi/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Worker-Secret': config.secret
+      },
+      body: JSON.stringify({
+        slug,
+        url: full,
+        description: document.getElementById('f-desc').value.trim()
+      })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(err || `HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    const shortUrl = `https://manualdorecemnascido.com.br/${slug}`;
+
+    // Show result
+    const resultEl = document.getElementById('short-result');
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="short-url">${shortUrl}</span>
+        <button class="btn btn-outline btn-sm" onclick="copyText('${shortUrl}')">Copiar</button>
+      </div>
+    `;
+
+    // Add to session list
+    shortLinks.unshift({ slug, url: full });
+    renderShortList();
+    toast('Link curto criado!');
+
+  } catch(e) {
+    toast('Erro: ' + e.message);
+    document.getElementById('short-result').style.display = 'block';
+    document.getElementById('short-result').innerHTML = `<span style="color:var(--red)">Erro: ${e.message}</span>`;
+  } finally {
+    btn.innerHTML = 'Criar';
+    btn.disabled = false;
+    slugInput();
+  }
+}
+
+function renderShortList() {
+  const wrap = document.getElementById('short-list-wrap');
+  const list = document.getElementById('short-list');
+  if (!shortLinks.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  list.innerHTML = shortLinks.map(s => `
+    <div class="short-list-item">
+      <span class="short-slug"><a href="https://manualdorecemnascido.com.br/${s.slug}" target="_blank">${s.slug}</a></span>
+      <span class="short-arrow">→</span>
+      <span class="short-target" title="${s.url}">${s.url}</span>
+      <button class="btn-ghost btn-sm" style="padding:2px 6px;font-size:11px" onclick="copyText('https://manualdorecemnascido.com.br/${s.slug}')">⎘</button>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// HISTORY
+// ============================================================
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
+}
+function saveHistory(entry) {
+  const h = getHistory();
+  h.unshift(entry);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0, 100)));
+}
+function clearHistory() {
+  if (!confirm('Limpar todo o histórico?')) return;
+  localStorage.removeItem(HISTORY_KEY);
+  renderHistory();
+  toast('Histórico limpo');
+}
+
+function renderHistory() {
+  const h = getHistory();
+  const el = document.getElementById('history-body');
+  document.getElementById('h-count').textContent = h.length ? `${h.length} link${h.length>1?'s':''}` : '';
+
+  if (!h.length) {
+    el.innerHTML = '<div class="history-empty">Nenhum link gerado ainda</div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <table class="h-table">
+      <thead><tr>
+        <th>Descrição</th>
+        <th>URL gerada</th>
+        <th>Fonte</th>
+        <th>Campanha</th>
+        <th>Data</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        ${h.map(e => `
+          <tr>
+            <td class="h-desc" title="${e.desc||''}">${e.desc || '—'}</td>
+            <td class="h-url" title="${e.url}" onclick="copyText('${e.url.replace(/'/g,"\\'")}')">
+              ${e.url}
+            </td>
+            <td><span class="tag">${e.source||'—'}</span></td>
+            <td><span class="tag">${e.campaign||'—'}</span></td>
+            <td class="h-date">${e.date}</td>
+            <td class="h-actions">
+              <button class="btn-ghost" title="Copiar URL" onclick="copyText('${e.url.replace(/'/g,"\\'")}')">⎘</button>
+              <button class="btn-ghost" title="Usar como base" onclick="loadHistory(${JSON.stringify(e).replace(/'/g,"\\'")})">↩</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function loadHistory(entry) {
+  document.getElementById('f-url').value      = '';
+  document.getElementById('f-desc').value     = entry.desc || '';
+  document.getElementById('f-source').value   = entry.source || '';
+  document.getElementById('f-campaign').value = entry.campaign || '';
+  document.getElementById('f-medium').value   = entry.medium || '';
+  update();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  toast('Campos preenchidos');
+}
+
+// ============================================================
+// CONFIG
+// ============================================================
+function getConfig() {
+  try { return JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}'); } catch { return {}; }
+}
+function openConfig() {
+  const cfg = getConfig();
+  document.getElementById('cfg-secret').value = cfg.secret || '';
+  document.getElementById('modal-config').classList.add('open');
+}
+function closeConfig() {
+  document.getElementById('modal-config').classList.remove('open');
+}
+function saveConfig() {
+  const secret = document.getElementById('cfg-secret').value.trim();
+  localStorage.setItem(CONFIG_KEY, JSON.stringify({ secret }));
+  closeConfig();
+  toast('Configuração salva');
+}
+document.getElementById('modal-config').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeConfig();
+});
+
+// ============================================================
+// TOAST
+// ============================================================
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+renderHistory();
+</script>
+</body>
+</html>

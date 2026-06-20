@@ -41,14 +41,17 @@
     .chip { padding: 4px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; font-size: 11px; cursor: pointer; white-space: nowrap; transition: all .15s; line-height: 1.4; }
     .chip:hover { border-color: var(--lime); color: var(--lime); }
 
-    /* ---- Preset chips ---- */
-    .chip-preset { display: inline-flex; align-items: center; gap: 0; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; font-size: 11px; white-space: nowrap; transition: all .15s; overflow: hidden; }
-    .chip-preset:hover { border-color: var(--lime); }
-    .chip-preset-label { padding: 4px 8px 4px 10px; cursor: pointer; line-height: 1.4; }
-    .chip-preset-label:hover { color: var(--lime); }
-    .chip-preset-del { padding: 4px 8px 4px 4px; cursor: pointer; color: var(--muted2); font-size: 13px; line-height: 1; }
-    .chip-preset-del:hover { color: var(--red); }
-    .presets-empty { font-size: 12px; color: var(--muted2); font-style: italic; }
+    /* ---- Value chips (modal) ---- */
+    .val-section { margin-bottom: 20px; }
+    .val-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--lime); margin-bottom: 8px; }
+    .val-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+    .val-chip { display: inline-flex; align-items: center; gap: 0; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; font-size: 12px; overflow: hidden; font-family: monospace; }
+    .val-chip-text { padding: 4px 8px 4px 10px; }
+    .val-chip-del { padding: 4px 8px 4px 4px; cursor: pointer; color: var(--muted2); font-size: 14px; line-height: 1; }
+    .val-chip-del:hover { color: var(--red); }
+    .val-add-row { display: flex; gap: 6px; }
+    .val-add-row input { flex: 1; }
+    .val-empty { font-size: 12px; color: var(--muted2); font-style: italic; margin-bottom: 8px; }
 
     /* ---- Form ---- */
     .field { margin-bottom: 13px; }
@@ -156,6 +159,7 @@
     <p>Manual do Recém-Nascido · Links com rastreamento</p>
   </div>
   <div class="header-right">
+    <button class="btn-icon" onclick="openValues()" title="Gerenciar valores de autocompletar">✏ Valores UTM</button>
     <button class="btn-icon" onclick="openConfig()" title="Configurações do link curto">⚙ Config</button>
     <button class="btn-icon" onclick="clearHistory()" title="Limpar histórico">🗑 Histórico</button>
   </div>
@@ -196,15 +200,6 @@
           <span class="chip" onclick="useLink('https://db.manualdorecemnascido.com.br/consulta-do-sono-com-day')">Consulta Sono</span>
         </div>
       </div>
-    </div>
-
-    <!-- Modelos UTM -->
-    <div class="card" id="presets-card" style="margin-bottom:16px">
-      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <span>Modelos UTM</span>
-        <span id="presets-count" style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0"></span>
-      </div>
-      <div id="presets-body"></div>
     </div>
 
     <!-- Form -->
@@ -269,7 +264,6 @@
 
       <div class="btn-row" style="margin-top:6px">
         <button class="btn btn-lime" onclick="generate()">Gerar URL</button>
-        <button class="btn btn-outline btn-sm" onclick="openSavePreset()">💾 Salvar modelo</button>
         <button class="btn btn-outline btn-sm" onclick="clearForm()">Limpar</button>
       </div>
     </div>
@@ -324,31 +318,16 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<!-- Save Preset Modal -->
-<div class="modal-bg" id="modal-preset">
-  <div class="modal">
-    <h3>💾 Salvar modelo UTM</h3>
-    <p>Salva a combinação de UTMs atual como atalho. Clique no modelo pra preencher todos os campos de uma vez.</p>
-    <div class="field">
-      <label>Nome do modelo <span>obrigatório</span></label>
-      <input type="text" id="preset-label" placeholder="ex: Link da Bio Orgânico" autocomplete="off">
-    </div>
-    <div class="field">
-      <label>Categoria</label>
-      <input type="text" id="preset-category" placeholder="Gestantes, Amamentação, Sono..." list="preset-categories" autocomplete="off">
-      <datalist id="preset-categories">
-        <option value="Gestantes">
-        <option value="Amamentação">
-        <option value="Sono">
-        <option value="Recuperação">
-        <option value="Automação">
-        <option value="Geral">
-      </datalist>
-      <div class="form-note" id="preset-preview" style="margin-top:6px;color:var(--lime);font-family:monospace;font-size:10px"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline btn-sm" onclick="closePreset()">Cancelar</button>
-      <button class="btn btn-lime btn-sm" onclick="savePreset()">Salvar</button>
+<!-- Valores UTM Modal -->
+<div class="modal-bg" id="modal-values">
+  <div class="modal" style="width:520px;max-height:85vh;overflow-y:auto">
+    <h3>✏ Valores de autocompletar</h3>
+    <p>Esses valores aparecem como sugestão ao digitar nos campos UTM. Adicione ou remova à vontade.</p>
+
+    <div id="values-sections"></div>
+
+    <div class="modal-footer" style="position:sticky;bottom:0;background:var(--surface);padding-top:12px">
+      <button class="btn btn-lime btn-sm" onclick="closeValues()">Fechar</button>
     </div>
   </div>
 </div>
@@ -372,9 +351,11 @@
 
 <script>
 // ============================================================
-// DATA — Keywords de cada campo
+// DATA — valores de autocompletar (carregados do localStorage)
 // ============================================================
-const AC_DATA = {
+const VALUES_KEY = 'utm_values_v1';
+
+const AC_DEFAULTS = {
   source: [
     'instagram','tiktok','facebook','youtube','kwai','google','whatsapp',
     'isca-digital','area-de-membros','automacao-whats','upsell',
@@ -406,6 +387,19 @@ const AC_DATA = {
     'pagina-up-sell','palestra-aline','checkout'
   ]
 };
+
+function loadValues() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(VALUES_KEY) || 'null');
+    return saved || JSON.parse(JSON.stringify(AC_DEFAULTS)); // deep clone defaults
+  } catch { return JSON.parse(JSON.stringify(AC_DEFAULTS)); }
+}
+
+function persistValues() {
+  localStorage.setItem(VALUES_KEY, JSON.stringify(AC_DATA));
+}
+
+const AC_DATA = loadValues();
 
 // ============================================================
 // STATE
@@ -824,139 +818,83 @@ function toast(msg) {
 }
 
 // ============================================================
-// PRESETS (Modelos UTM)
+// VALORES UTM — gerenciar autocompletar por campo
 // ============================================================
-const PRESETS_KEY = 'utm_presets_v1';
+const FIELD_LABELS = {
+  source:   'utm_source',
+  campaign: 'utm_campaign',
+  medium:   'utm_medium',
+  id:       'utm_id',
+  content:  'utm_content'
+};
 
-function getPresets() {
-  try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || '[]'); } catch { return []; }
+function renderValuesModal() {
+  const container = document.getElementById('values-sections');
+  container.innerHTML = Object.keys(FIELD_LABELS).map(field => {
+    const values = AC_DATA[field] || [];
+    return `
+      <div class="val-section">
+        <div class="val-label">${FIELD_LABELS[field]}</div>
+        <div class="val-chips" id="val-chips-${field}">
+          ${values.length
+            ? values.map((v,i) => `
+              <span class="val-chip">
+                <span class="val-chip-text">${v}</span>
+                <span class="val-chip-del" onclick="deleteValue('${field}',${i})" title="Remover">×</span>
+              </span>`).join('')
+            : `<span class="val-empty">Nenhum valor cadastrado</span>`
+          }
+        </div>
+        <div class="val-add-row">
+          <input type="text" id="val-input-${field}" placeholder="Adicionar novo valor..." autocomplete="off"
+            onkeydown="if(event.key==='Enter') addValue('${field}')">
+          <button class="btn btn-outline btn-sm" onclick="addValue('${field}')">+ Adicionar</button>
+        </div>
+      </div>
+      <hr class="sep" style="margin:4px 0 16px">
+    `;
+  }).join('');
 }
 
-function renderPresets() {
-  const presets = getPresets();
-  const body = document.getElementById('presets-body');
-  const countEl = document.getElementById('presets-count');
-
-  countEl.textContent = presets.length ? `${presets.length} modelo${presets.length>1?'s':''}` : '';
-
-  if (!presets.length) {
-    body.innerHTML = '<div class="presets-empty">Nenhum modelo salvo ainda — preencha os UTMs e clique "Salvar modelo"</div>';
+function addValue(field) {
+  const input = document.getElementById('val-input-' + field);
+  const val = input.value.trim();
+  if (!val) return;
+  if (AC_DATA[field].includes(val)) {
+    toast('Valor já existe nessa lista');
     return;
   }
-
-  // Group by category
-  const groups = {};
-  presets.forEach(p => {
-    const cat = p.category || 'Geral';
-    if (!groups[cat]) groups[cat] = [];
-    groups[cat].push(p);
-  });
-
-  body.innerHTML = Object.entries(groups).map(([cat, items]) => `
-    <div class="ql-group">
-      <div class="ql-label">📁 ${cat}</div>
-      <div class="ql-chips">
-        ${items.map(p => `
-          <span class="chip-preset" title="${p.source ? 'source: '+p.source : ''}${p.campaign ? ' | campaign: '+p.campaign : ''}${p.medium ? ' | medium: '+p.medium : ''}">
-            <span class="chip-preset-label" onclick="applyPreset(${p.id})">${p.label}</span>
-            <span class="chip-preset-del" onclick="deletePreset(${p.id})" title="Remover">×</span>
-          </span>
-        `).join('')}
-      </div>
-    </div>
-  `).join('');
+  AC_DATA[field].push(val);
+  persistValues();
+  input.value = '';
+  renderValuesModal();
+  toast(`"${val}" adicionado em ${FIELD_LABELS[field]}`);
 }
 
-function applyPreset(id) {
-  const preset = getPresets().find(p => p.id === id);
-  if (!preset) return;
-
-  document.getElementById('f-source').value   = preset.source   || '';
-  document.getElementById('f-campaign').value = preset.campaign || '';
-  document.getElementById('f-medium').value   = preset.medium   || '';
-  document.getElementById('f-id').value       = preset.utmId    || '';
-  document.getElementById('f-content').value  = preset.content  || '';
-
-  ['source','campaign','medium','id','content'].forEach(f => {
-    const el  = document.getElementById('f-'+f);
-    const clr = document.getElementById('ac-clear-'+f);
-    if (clr) clr.style.display = el && el.value ? 'block' : 'none';
-  });
-
-  update();
-  toast(`Modelo "${preset.label}" aplicado`);
+function deleteValue(field, index) {
+  const removed = AC_DATA[field].splice(index, 1)[0];
+  persistValues();
+  renderValuesModal();
+  toast(`"${removed}" removido`);
 }
 
-function deletePreset(id) {
-  const presets = getPresets().filter(p => p.id !== id);
-  localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
-  renderPresets();
-  toast('Modelo removido');
+function openValues() {
+  renderValuesModal();
+  document.getElementById('modal-values').classList.add('open');
 }
 
-function openSavePreset() {
-  const source   = document.getElementById('f-source').value.trim();
-  const campaign = document.getElementById('f-campaign').value.trim();
-  const medium   = document.getElementById('f-medium').value.trim();
-  const utmId    = document.getElementById('f-id').value.trim();
-  const content  = document.getElementById('f-content').value.trim();
-
-  const preview = [
-    source   && `source=${source}`,
-    campaign && `campaign=${campaign}`,
-    medium   && `medium=${medium}`,
-    utmId    && `id=${utmId}`,
-    content  && `content=${content}`,
-  ].filter(Boolean).join(' · ');
-
-  document.getElementById('preset-preview').textContent = preview || 'Nenhum campo UTM preenchido';
-  document.getElementById('preset-label').value = '';
-  document.getElementById('preset-category').value = '';
-  document.getElementById('modal-preset').classList.add('open');
-  setTimeout(() => document.getElementById('preset-label').focus(), 80);
+function closeValues() {
+  document.getElementById('modal-values').classList.remove('open');
 }
 
-function closePreset() {
-  document.getElementById('modal-preset').classList.remove('open');
-}
-
-function savePreset() {
-  const label    = document.getElementById('preset-label').value.trim();
-  const category = document.getElementById('preset-category').value.trim() || 'Geral';
-
-  if (!label) { toast('Informe um nome para o modelo'); document.getElementById('preset-label').focus(); return; }
-
-  const source   = document.getElementById('f-source').value.trim();
-  const campaign = document.getElementById('f-campaign').value.trim();
-  const medium   = document.getElementById('f-medium').value.trim();
-  const utmId    = document.getElementById('f-id').value.trim();
-  const content  = document.getElementById('f-content').value.trim();
-
-  if (!source && !campaign && !medium && !utmId && !content) {
-    toast('Preencha ao menos um campo UTM antes de salvar'); closePreset(); return;
-  }
-
-  const preset = { id: Date.now(), label, category, source, campaign, medium, utmId, content };
-  const presets = getPresets();
-  presets.unshift(preset);
-  localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
-  renderPresets();
-  closePreset();
-  toast(`Modelo "${label}" salvo!`);
-}
-
-document.getElementById('modal-preset').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closePreset();
-});
-document.getElementById('preset-label').addEventListener('keydown', e => {
-  if (e.key === 'Enter') savePreset();
+document.getElementById('modal-values').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeValues();
 });
 
 // ============================================================
 // INIT
 // ============================================================
 renderHistory();
-renderPresets();
 </script>
 </body>
 </html>

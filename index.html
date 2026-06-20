@@ -41,6 +41,15 @@
     .chip { padding: 4px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; font-size: 11px; cursor: pointer; white-space: nowrap; transition: all .15s; line-height: 1.4; }
     .chip:hover { border-color: var(--lime); color: var(--lime); }
 
+    /* ---- Preset chips ---- */
+    .chip-preset { display: inline-flex; align-items: center; gap: 0; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; font-size: 11px; white-space: nowrap; transition: all .15s; overflow: hidden; }
+    .chip-preset:hover { border-color: var(--lime); }
+    .chip-preset-label { padding: 4px 8px 4px 10px; cursor: pointer; line-height: 1.4; }
+    .chip-preset-label:hover { color: var(--lime); }
+    .chip-preset-del { padding: 4px 8px 4px 4px; cursor: pointer; color: var(--muted2); font-size: 13px; line-height: 1; }
+    .chip-preset-del:hover { color: var(--red); }
+    .presets-empty { font-size: 12px; color: var(--muted2); font-style: italic; }
+
     /* ---- Form ---- */
     .field { margin-bottom: 13px; }
     .field label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 5px; }
@@ -189,6 +198,15 @@
       </div>
     </div>
 
+    <!-- Modelos UTM -->
+    <div class="card" id="presets-card" style="margin-bottom:16px">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span>Modelos UTM</span>
+        <span id="presets-count" style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0"></span>
+      </div>
+      <div id="presets-body"></div>
+    </div>
+
     <!-- Form -->
     <div class="card">
       <div class="card-title">Dados do link</div>
@@ -251,6 +269,7 @@
 
       <div class="btn-row" style="margin-top:6px">
         <button class="btn btn-lime" onclick="generate()">Gerar URL</button>
+        <button class="btn btn-outline btn-sm" onclick="openSavePreset()">💾 Salvar modelo</button>
         <button class="btn btn-outline btn-sm" onclick="clearForm()">Limpar</button>
       </div>
     </div>
@@ -304,6 +323,35 @@
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
+
+<!-- Save Preset Modal -->
+<div class="modal-bg" id="modal-preset">
+  <div class="modal">
+    <h3>💾 Salvar modelo UTM</h3>
+    <p>Salva a combinação de UTMs atual como atalho. Clique no modelo pra preencher todos os campos de uma vez.</p>
+    <div class="field">
+      <label>Nome do modelo <span>obrigatório</span></label>
+      <input type="text" id="preset-label" placeholder="ex: Link da Bio Orgânico" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Categoria</label>
+      <input type="text" id="preset-category" placeholder="Gestantes, Amamentação, Sono..." list="preset-categories" autocomplete="off">
+      <datalist id="preset-categories">
+        <option value="Gestantes">
+        <option value="Amamentação">
+        <option value="Sono">
+        <option value="Recuperação">
+        <option value="Automação">
+        <option value="Geral">
+      </datalist>
+      <div class="form-note" id="preset-preview" style="margin-top:6px;color:var(--lime);font-family:monospace;font-size:10px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closePreset()">Cancelar</button>
+      <button class="btn btn-lime btn-sm" onclick="savePreset()">Salvar</button>
+    </div>
+  </div>
+</div>
 
 <!-- Config Modal -->
 <div class="modal-bg" id="modal-config">
@@ -776,9 +824,139 @@ function toast(msg) {
 }
 
 // ============================================================
+// PRESETS (Modelos UTM)
+// ============================================================
+const PRESETS_KEY = 'utm_presets_v1';
+
+function getPresets() {
+  try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || '[]'); } catch { return []; }
+}
+
+function renderPresets() {
+  const presets = getPresets();
+  const body = document.getElementById('presets-body');
+  const countEl = document.getElementById('presets-count');
+
+  countEl.textContent = presets.length ? `${presets.length} modelo${presets.length>1?'s':''}` : '';
+
+  if (!presets.length) {
+    body.innerHTML = '<div class="presets-empty">Nenhum modelo salvo ainda — preencha os UTMs e clique "Salvar modelo"</div>';
+    return;
+  }
+
+  // Group by category
+  const groups = {};
+  presets.forEach(p => {
+    const cat = p.category || 'Geral';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(p);
+  });
+
+  body.innerHTML = Object.entries(groups).map(([cat, items]) => `
+    <div class="ql-group">
+      <div class="ql-label">📁 ${cat}</div>
+      <div class="ql-chips">
+        ${items.map(p => `
+          <span class="chip-preset" title="${p.source ? 'source: '+p.source : ''}${p.campaign ? ' | campaign: '+p.campaign : ''}${p.medium ? ' | medium: '+p.medium : ''}">
+            <span class="chip-preset-label" onclick="applyPreset(${p.id})">${p.label}</span>
+            <span class="chip-preset-del" onclick="deletePreset(${p.id})" title="Remover">×</span>
+          </span>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function applyPreset(id) {
+  const preset = getPresets().find(p => p.id === id);
+  if (!preset) return;
+
+  document.getElementById('f-source').value   = preset.source   || '';
+  document.getElementById('f-campaign').value = preset.campaign || '';
+  document.getElementById('f-medium').value   = preset.medium   || '';
+  document.getElementById('f-id').value       = preset.utmId    || '';
+  document.getElementById('f-content').value  = preset.content  || '';
+
+  ['source','campaign','medium','id','content'].forEach(f => {
+    const el  = document.getElementById('f-'+f);
+    const clr = document.getElementById('ac-clear-'+f);
+    if (clr) clr.style.display = el && el.value ? 'block' : 'none';
+  });
+
+  update();
+  toast(`Modelo "${preset.label}" aplicado`);
+}
+
+function deletePreset(id) {
+  const presets = getPresets().filter(p => p.id !== id);
+  localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
+  renderPresets();
+  toast('Modelo removido');
+}
+
+function openSavePreset() {
+  const source   = document.getElementById('f-source').value.trim();
+  const campaign = document.getElementById('f-campaign').value.trim();
+  const medium   = document.getElementById('f-medium').value.trim();
+  const utmId    = document.getElementById('f-id').value.trim();
+  const content  = document.getElementById('f-content').value.trim();
+
+  const preview = [
+    source   && `source=${source}`,
+    campaign && `campaign=${campaign}`,
+    medium   && `medium=${medium}`,
+    utmId    && `id=${utmId}`,
+    content  && `content=${content}`,
+  ].filter(Boolean).join(' · ');
+
+  document.getElementById('preset-preview').textContent = preview || 'Nenhum campo UTM preenchido';
+  document.getElementById('preset-label').value = '';
+  document.getElementById('preset-category').value = '';
+  document.getElementById('modal-preset').classList.add('open');
+  setTimeout(() => document.getElementById('preset-label').focus(), 80);
+}
+
+function closePreset() {
+  document.getElementById('modal-preset').classList.remove('open');
+}
+
+function savePreset() {
+  const label    = document.getElementById('preset-label').value.trim();
+  const category = document.getElementById('preset-category').value.trim() || 'Geral';
+
+  if (!label) { toast('Informe um nome para o modelo'); document.getElementById('preset-label').focus(); return; }
+
+  const source   = document.getElementById('f-source').value.trim();
+  const campaign = document.getElementById('f-campaign').value.trim();
+  const medium   = document.getElementById('f-medium').value.trim();
+  const utmId    = document.getElementById('f-id').value.trim();
+  const content  = document.getElementById('f-content').value.trim();
+
+  if (!source && !campaign && !medium && !utmId && !content) {
+    toast('Preencha ao menos um campo UTM antes de salvar'); closePreset(); return;
+  }
+
+  const preset = { id: Date.now(), label, category, source, campaign, medium, utmId, content };
+  const presets = getPresets();
+  presets.unshift(preset);
+  localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
+  renderPresets();
+  closePreset();
+  toast(`Modelo "${label}" salvo!`);
+}
+
+document.getElementById('modal-preset').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closePreset();
+});
+document.getElementById('preset-label').addEventListener('keydown', e => {
+  if (e.key === 'Enter') savePreset();
+});
+
+// ============================================================
 // INIT
 // ============================================================
 renderHistory();
+renderPresets();
 </script>
 </body>
 </html>

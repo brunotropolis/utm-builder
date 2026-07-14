@@ -131,6 +131,9 @@
     .h-desc { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
     .h-date { color: var(--muted); white-space: nowrap; }
     .h-actions { display: flex; gap: 4px; }
+    .h-short { white-space: nowrap; }
+    .h-short a { color: var(--lime); font-family: monospace; font-size: 11px; text-decoration: none; }
+    .h-short a:hover { text-decoration: underline; }
 
     /* ---- Toast ---- */
     .toast { position: fixed; bottom: 20px; right: 20px; background: var(--lime); color: #000; padding: 9px 16px; border-radius: var(--radius); font-size: 13px; font-weight: 600; opacity: 0; transform: translateY(6px); transition: all .2s; pointer-events: none; z-index: 999; }
@@ -298,19 +301,10 @@
     </div>
   </div>
 
-  <!-- ===== LINKS CURTOS ===== -->
-  <div class="card history-section" id="short-list-wrap" style="display:none">
-    <div class="card-title" style="display:flex;justify-content:space-between">
-      <span>Links curtos criados</span>
-      <span id="short-count" style="color:var(--muted);font-weight:400"></span>
-    </div>
-    <div id="short-list" class="short-list"></div>
-  </div>
-
-  <!-- ===== HISTÓRICO ===== -->
+  <!-- ===== HISTÓRICO (unificado: URLs geradas + links curtos) ===== -->
   <div class="card history-section">
     <div class="card-title" style="display:flex;justify-content:space-between">
-      <span>Histórico de URLs geradas</span>
+      <span>Histórico de links</span>
       <span id="h-count" style="color:var(--muted)"></span>
     </div>
     <div id="history-body"></div>
@@ -409,7 +403,7 @@ const AC_DATA = loadValues();
 // ============================================================
 let currentUrl = '';
 let currentParams = '';
-let shortLinks = [];    // session short links
+let serverShorts = [];  // links curtos carregados do servidor (/_utmapi/slugs)
 const HISTORY_KEY = 'utm_history_v1';
 const CONFIG_KEY  = 'utm_config_v1';
 
@@ -679,9 +673,10 @@ async function createShort() {
       </div>
     `;
 
-    // Add to session list
-    shortLinks.unshift({ slug, url: full });
-    renderShortList();
+    // adiciona/atualiza na lista de curtos e re-renderiza o histórico unificado
+    serverShorts = serverShorts.filter(s => s.slug !== slug);
+    serverShorts.unshift({ slug, url: full, description: document.getElementById('f-desc').value.trim(), created: new Date().toISOString() });
+    renderHistory();
     toast('Link curto criado!');
 
   } catch(e) {
@@ -695,25 +690,6 @@ async function createShort() {
   }
 }
 
-function renderShortList() {
-  const wrap = document.getElementById('short-list-wrap');
-  const list = document.getElementById('short-list');
-  if (!shortLinks.length) { wrap.style.display = 'none'; return; }
-  wrap.style.display = 'block';
-  const countEl = document.getElementById('short-count');
-  if (countEl) countEl.textContent = shortLinks.length + ' link' + (shortLinks.length > 1 ? 's' : '');
-  const fmtDate = (iso) => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' }); };
-  list.innerHTML = shortLinks.map(s => `
-    <div class="short-list-item">
-      <span class="short-slug"><a href="https://manualdorecemnascido.com.br/l/${s.slug}" target="_blank">${s.slug}</a></span>
-      <span class="short-arrow">→</span>
-      <span class="short-target" title="${s.description ? s.description + ' — ' : ''}${s.url}">${s.url}</span>
-      ${s.created ? `<span style="color:var(--muted);font-size:10px;white-space:nowrap">${fmtDate(s.created)}</span>` : ''}
-      <button class="btn-ghost btn-sm" style="padding:2px 6px;font-size:11px" onclick="copyText('https://manualdorecemnascido.com.br/l/${s.slug}')">⎘</button>
-    </div>
-  `).join('');
-}
-
 async function loadAllShortLinks() {
   const config = getConfig();
   if (!config.secret) return;
@@ -723,11 +699,9 @@ async function loadAllShortLinks() {
     });
     if (!resp.ok) return;
     const items = await resp.json();
-    shortLinks = items
-      .map(s => ({ slug: s.slug, url: s.url, description: s.description || '', created: s.created || '' }))
-      .sort((a, b) => (b.created || '').localeCompare(a.created || ''));
-    renderShortList();
-  } catch (e) { /* silencioso — mantém a lista da sessão */ }
+    serverShorts = items.map(s => ({ slug: s.slug, url: s.url, description: s.description || '', created: s.created || '' }));
+    renderHistory();
+  } catch (e) { /* silencioso — mantém o histórico local */ }
 }
 
 // ============================================================
@@ -748,53 +722,106 @@ function clearHistory() {
   toast('Histórico limpo');
 }
 
-function renderHistory() {
-  const h = getHistory();
-  const el = document.getElementById('history-body');
-  document.getElementById('h-count').textContent = h.length ? `${h.length} link${h.length>1?'s':''}` : '';
+function paramOf(url, key) {
+  try { return new URL(url).searchParams.get(key) || ''; } catch { return ''; }
+}
+function fmtHistDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
 
-  if (!h.length) {
-    el.innerHTML = '<div class="history-empty">Nenhum link gerado ainda</div>';
+function renderHistory() {
+  const hist = getHistory();  // {id, desc, url, source, campaign, medium, date}
+  const el = document.getElementById('history-body');
+
+  // indexa curtos por URL de destino
+  const shortByUrl = {};
+  serverShorts.forEach(s => { if (s.url) shortByUrl[s.url] = s; });
+
+  // lista unificada: histórico local + curtos que não estão no local, dedup por URL
+  const seen = new Set();
+  const rows = [];
+  hist.forEach(e => {
+    seen.add(e.url);
+    const s = shortByUrl[e.url];
+    rows.push({
+      ts: e.id || 0,
+      desc: e.desc || (s && s.description) || '',
+      url: e.url,
+      slug: s ? s.slug : '',
+      source: e.source || paramOf(e.url, 'utm_source'),
+      campaign: e.campaign || paramOf(e.url, 'utm_campaign'),
+      medium: e.medium || paramOf(e.url, 'utm_medium'),
+      date: e.date || fmtHistDate(s && s.created),
+    });
+  });
+  serverShorts.forEach(s => {
+    if (!s.url || seen.has(s.url)) return;
+    rows.push({
+      ts: s.created ? Date.parse(s.created) : 0,
+      desc: s.description || '',
+      url: s.url,
+      slug: s.slug,
+      source: paramOf(s.url, 'utm_source'),
+      campaign: paramOf(s.url, 'utm_campaign'),
+      medium: paramOf(s.url, 'utm_medium'),
+      date: fmtHistDate(s.created),
+    });
+  });
+  rows.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+  document.getElementById('h-count').textContent = rows.length ? `${rows.length} link${rows.length>1?'s':''}` : '';
+  if (!rows.length) {
+    el.innerHTML = '<div class="history-empty">Nenhum link ainda</div>';
     return;
   }
+
+  const sq = (s) => String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");   // p/ arg JS
+  const attr = (s) => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;'); // p/ atributo HTML
 
   el.innerHTML = `
     <table class="h-table">
       <thead><tr>
         <th>Descrição</th>
         <th>URL gerada</th>
+        <th>Link curto</th>
         <th>Fonte</th>
         <th>Campanha</th>
         <th>Data</th>
         <th></th>
       </tr></thead>
       <tbody>
-        ${h.map(e => `
+        ${rows.map(r => {
+          const shortUrl = r.slug ? `https://manualdorecemnascido.com.br/l/${r.slug}` : '';
+          const shortCell = r.slug
+            ? `<a href="${shortUrl}" target="_blank" title="${shortUrl}">/l/${r.slug}</a> <button class="btn-ghost" title="Copiar link curto" onclick="copyText('${sq(shortUrl)}')">⎘</button>`
+            : '<span style="color:var(--muted2)">—</span>';
+          return `
           <tr>
-            <td class="h-desc" title="${e.desc||''}">${e.desc || '—'}</td>
-            <td class="h-url" title="${e.url}" onclick="copyText('${e.url.replace(/'/g,"\\'")}')">
-              ${e.url}
-            </td>
-            <td><span class="tag">${e.source||'—'}</span></td>
-            <td><span class="tag">${e.campaign||'—'}</span></td>
-            <td class="h-date">${e.date}</td>
+            <td class="h-desc" title="${attr(r.desc)}">${r.desc || '—'}</td>
+            <td class="h-url" title="${attr(r.url)}" onclick="copyText('${sq(r.url)}')">${r.url}</td>
+            <td class="h-short">${shortCell}</td>
+            <td><span class="tag">${r.source||'—'}</span></td>
+            <td><span class="tag">${r.campaign||'—'}</span></td>
+            <td class="h-date">${r.date || '—'}</td>
             <td class="h-actions">
-              <button class="btn-ghost" title="Copiar URL" onclick="copyText('${e.url.replace(/'/g,"\\'")}')">⎘</button>
-              <button class="btn-ghost" title="Usar como base" onclick="loadHistory(${JSON.stringify(e).replace(/'/g,"\\'")})">↩</button>
+              <button class="btn-ghost" title="Copiar URL gerada" onclick="copyText('${sq(r.url)}')">⎘</button>
+              <button class="btn-ghost" title="Usar como base" onclick="loadHistory('${sq(r.desc)}','${sq(r.source)}','${sq(r.campaign)}','${sq(r.medium)}')">↩</button>
             </td>
-          </tr>
-        `).join('')}
+          </tr>`;
+        }).join('')}
       </tbody>
     </table>
   `;
 }
 
-function loadHistory(entry) {
+function loadHistory(desc, source, campaign, medium) {
   document.getElementById('f-url').value      = '';
-  document.getElementById('f-desc').value     = entry.desc || '';
-  document.getElementById('f-source').value   = entry.source || '';
-  document.getElementById('f-campaign').value = entry.campaign || '';
-  document.getElementById('f-medium').value   = entry.medium || '';
+  document.getElementById('f-desc').value     = desc || '';
+  document.getElementById('f-source').value   = source || '';
+  document.getElementById('f-campaign').value = campaign || '';
+  document.getElementById('f-medium').value   = medium || '';
   update();
   window.scrollTo({ top: 0, behavior: 'smooth' });
   toast('Campos preenchidos');

@@ -298,7 +298,10 @@
 
       <!-- Short links list -->
       <div id="short-list-wrap" style="display:none;margin-top:16px">
-        <div class="card-title" style="margin-bottom:8px">Links criados nesta sessão</div>
+        <div class="card-title" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+          <span>Links curtos criados</span>
+          <span id="short-count" style="color:var(--muted);font-weight:400;font-size:11px"></span>
+        </div>
         <div id="short-list" class="short-list"></div>
       </div>
     </div>
@@ -697,14 +700,34 @@ function renderShortList() {
   const list = document.getElementById('short-list');
   if (!shortLinks.length) { wrap.style.display = 'none'; return; }
   wrap.style.display = 'block';
+  const countEl = document.getElementById('short-count');
+  if (countEl) countEl.textContent = shortLinks.length + ' link' + (shortLinks.length > 1 ? 's' : '');
+  const fmtDate = (iso) => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' }); };
   list.innerHTML = shortLinks.map(s => `
     <div class="short-list-item">
       <span class="short-slug"><a href="https://manualdorecemnascido.com.br/l/${s.slug}" target="_blank">${s.slug}</a></span>
       <span class="short-arrow">→</span>
-      <span class="short-target" title="${s.url}">${s.url}</span>
+      <span class="short-target" title="${s.description ? s.description + ' — ' : ''}${s.url}">${s.url}</span>
+      ${s.created ? `<span style="color:var(--muted);font-size:10px;white-space:nowrap">${fmtDate(s.created)}</span>` : ''}
       <button class="btn-ghost btn-sm" style="padding:2px 6px;font-size:11px" onclick="copyText('https://manualdorecemnascido.com.br/l/${s.slug}')">⎘</button>
     </div>
   `).join('');
+}
+
+async function loadAllShortLinks() {
+  const config = getConfig();
+  if (!config.secret) return;
+  try {
+    const resp = await fetch('https://manualdorecemnascido.com.br/_utmapi/slugs', {
+      headers: { 'X-Worker-Secret': config.secret }
+    });
+    if (!resp.ok) return;
+    const items = await resp.json();
+    shortLinks = items
+      .map(s => ({ slug: s.slug, url: s.url, description: s.description || '', created: s.created || '' }))
+      .sort((a, b) => (b.created || '').localeCompare(a.created || ''));
+    renderShortList();
+  } catch (e) { /* silencioso — mantém a lista da sessão */ }
 }
 
 // ============================================================
@@ -895,6 +918,7 @@ document.getElementById('modal-values').addEventListener('click', e => {
 // INIT
 // ============================================================
 renderHistory();
+loadAllShortLinks();
 </script>
 </body>
 </html>
